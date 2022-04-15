@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.js"></script>
+</head>
+<body>
+    <div id="container">
+        <form id="form0" enctype="multipart/form-data">
+            <input id="fileInput" type="file" multiple required accept="application/pdf" name="files">
+            <input id="submitBtn" type="submit" value="转换">
+        </form>
+    </div>
+
+    <script>
+        $('#form0').bind('submit',function(){
+            let sBtn = $('#submitBtn')
+            $.ajax({
+                type: 'post',
+                url: '/upload',
+                data: new FormData($('#form0')[0]),
+                cache: false,
+                processData: false,
+                contentType: false,
+                async: true,
+                dataType: 'json',
+                success: function (resp){
+                    sBtn.val('转换')
+                    sBtn.attr('disabled',false)
+                    $.each(resp,function (idx,val){
+                        if(val != 'retry') {
+                            appendForEpubDownload('form0','/download/' + idx + '/' + val,idx)
+                        }
+                        else {
+                            alert(idx + '转换失败')
+                        }
+                    })
+                },
+                error: function (){
+                    sBtn.val('转换')
+                    sBtn.attr('disabled',false)
+                    alert('服务器内部错误');
+                }
+            });
+            sBtn.val('转换中...')
+            sBtn.attr('disabled',true)
+            return false;
+        })
+
+        function appendForEpubDownload(parentId,href,text) {
+            let parent = $('#' + parentId)
+            let ele = $("<a></a>")
+
+            parent.append('<br>')
+            ele.attr('href',href)
+            ele.text(text)
+            parent.append(ele)
+        }
+    </script>
+</body>
+</html>

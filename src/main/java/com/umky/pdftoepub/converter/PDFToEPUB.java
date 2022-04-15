@@ -17,10 +17,10 @@ import org.apache.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPa
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline;
 import org.apache.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
-import javax.xml.bind.JAXBException;
-import javax.xml.transform.TransformerException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.zip.ZipOutputStream;
 
 public class PDFToEPUB implements PDFConverter{
+
+    private static final Logger logger = LoggerFactory.getLogger(PDFToEPUB.class);
 
     private PDDocument document;
 
@@ -42,11 +44,13 @@ public class PDFToEPUB implements PDFConverter{
     private int chapterCount = 1;
 
     @Override
-    public void convert(InputStream in, OutputStream out) throws IOException, JAXBException, TransformerException {
+    public void convert(InputStream in, OutputStream out) throws IOException {
         try(RandomAccessRead rar = new RandomAccessBuffer(in)) {
             PDFParser pdfParser = new PDFParser(rar);
             pdfParser.parse();
             this.document = pdfParser.getPDDocument();
+        } catch (IOException e) {
+            throw new IOException("parse file to PDDocument by Pdf-box failed. " + e.getLocalizedMessage());
         }
 
         if(document!=null) {
@@ -54,10 +58,22 @@ public class PDFToEPUB implements PDFConverter{
 
             extractMetadata();
             extractOutline();
-            extractContent();
+            try {
+                extractContent();
+            } catch (IOException e) {
+                throw new IOException("extract pdf content failed.");
+            }
 
-            container.toZipOutputStream(new ZipOutputStream(out));
-            document.close();
+            try{
+                container.toZipOutputStream(new ZipOutputStream(out));
+            } catch (Exception e) {
+                throw new IOException("output to zip failed.");
+            }
+            try {
+                document.close();
+            } catch (IOException e) {
+                logger.warn(document + " failed to close.",e);
+            }
         }
     }
 
@@ -108,7 +124,7 @@ public class PDFToEPUB implements PDFConverter{
         dfs(item.getNextSibling(),ol);
     }
 
-    private void extractContent() throws IOException {
+    private void extractContent() throws IOException{
         PDFTextStripper stripper = new PDFTextStripper();
 
         stripper.setLineSeparator("");
